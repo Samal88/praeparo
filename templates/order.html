@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Praeparo - B2B Vegetable Ordering Desk</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        
+        /* 58mm Thermal Printer (PT-210) Print Setup */
+        @media print {
+            body { background: white !important; }
+            body * { visibility: hidden; }
+            #mobile-print-receipt, #mobile-print-receipt * { visibility: visible; }
+            #mobile-print-receipt { 
+                position: absolute; 
+                left: 0; 
+                top: 0; 
+                width: 48mm; 
+                display: block !important; 
+                font-family: monospace; 
+                font-size: 8px; 
+                color: black !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-900 min-h-screen pb-12">
+
+    <header class="bg-emerald-950 text-white p-4 shadow-md sticky top-0 z-50">
+        <div class="max-w-md mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <span class="text-2xl">🥗</span>
+                <div>
+                    <h1 class="font-extrabold text-base tracking-wider uppercase text-emerald-400">PRAEPARO</h1>
+                    <p class="text-[10px] text-emerald-200">Fresh Cut Produce • Direct Kitchen Ordering</p>
+                </div>
+            </div>
+            <span class="text-[10px] bg-emerald-800 px-2 py-1 rounded font-bold text-emerald-100">B2B Portal</span>
+        </div>
+    </header>
+
+    <main class="max-w-md mx-auto px-4 mt-4 space-y-4">
+
+        <!-- Client Profile Header -->
+        <div class="bg-gradient-to-r from-emerald-800 to-green-700 text-white p-4 rounded-2xl shadow-sm space-y-2">
+            <div class="flex justify-between items-center">
+                <span class="bg-emerald-600/90 text-emerald-100 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">Verified Partner</span>
+                <span class="text-[11px] bg-amber-950/80 text-amber-300 border border-amber-700/50 px-2 py-0.5 rounded-lg font-bold" id="shop-balance-badge">
+                    Pending COD: Rs. 0.00
+                </span>
+            </div>
+            <div>
+                <h2 class="text-lg font-black" id="shop-name-disp">Loading Partner Profile...</h2>
+                <p class="text-xs text-emerald-100" id="shop-route-disp">Route: General Route</p>
+            </div>
+        </div>
+
+        <div>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">1. Select Fresh Cut Produce</h3>
+            <div id="catalog-container" class="space-y-3">
+                <p class="text-xs text-slate-400 text-center py-4">Connecting to backend server...</p>
+            </div>
+        </div>
+
+        <!-- Order Basket -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-2">
+                <h3 class="font-bold text-xs uppercase tracking-wider text-slate-700">🛒 Order Basket</h3>
+                <button onclick="clearBasket()" class="text-xs text-red-500 font-bold hover:underline">Clear</button>
+            </div>
+            
+            <div id="basket-container" class="space-y-2 text-xs">
+                <p class="text-slate-400 italic text-center py-2">Select items from catalog above.</p>
+            </div>
+
+            <div class="pt-2 border-t border-slate-100 flex justify-between items-center font-bold text-base">
+                <span>Total Amount:</span>
+                <span class="text-emerald-700 text-xl font-black" id="total-disp">Rs. 0.00</span>
+            </div>
+
+            <div class="space-y-2 pt-1">
+                <button onclick="submitOrderToBackend()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3 rounded-xl shadow transition text-sm">
+                    🚀 Send Order to Central Kitchen
+                </button>
+
+                <!-- 58mm Thermal Print Button -->
+                <button id="btn-mobile-print" onclick="printMobileReceipt()" class="hidden w-full bg-slate-900 hover:bg-slate-800 text-emerald-400 font-bold py-2.5 rounded-xl border border-slate-700 text-xs flex items-center justify-center gap-2 shadow">
+                    🖨️ Print 58mm Thermal Receipt
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- HIDDEN THERMAL RECEIPT CONTAINER -->
+    <div id="mobile-print-receipt"></div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const clientId = urlParams.get('cid') || 'SHOP_001';
+
+        let activeClient = { id: clientId, name: "Loading...", route: "...", pending_balance: 0 };
+        let catalogData = [];
+        let basket = {};
+        let lastPlacedOrder = null;
+
+        async function loadClientProfile() {
+            try {
+                const res = await fetch(`/api/client/${clientId}`);
+                activeClient = await res.json();
+                document.getElementById('shop-name-disp').innerText = activeClient.name;
+                document.getElementById('shop-route-disp').innerText = "Route: " + activeClient.route;
+                document.getElementById('shop-balance-badge').innerText = `Pending COD: Rs. ${activeClient.pending_balance.toFixed(2)}`;
+            } catch (err) { console.error("Client load error"); }
+        }
+
+        async function loadCatalog() {
+            try {
+                const res = await fetch('/api/catalog');
+                catalogData = await res.json();
+                renderCatalog();
+            } catch (err) {
+                document.getElementById('catalog-container').innerHTML = `<p class="text-xs text-red-500 text-center">Failed to load catalog.</p>`;
+            }
+        }
+
+        function renderCatalog() {
+            const container = document.getElementById('catalog-container');
+            container.innerHTML = '';
+
+            catalogData.forEach(veg => {
+                let optionsHtml = '';
+                if (veg.active.standard) optionsHtml += `<option value="standard">Standard: ${veg.cuts.standard} (Rs. ${veg.prices.standard}/kg)</option>`;
+                if (veg.active.commercial) optionsHtml += `<option value="commercial" ${veg.active.standard ? '' : 'selected'}>Commercial: ${veg.cuts.commercial} (Rs. ${veg.prices.commercial}/kg)</option>`;
+                if (veg.active.precision) optionsHtml += `<option value="precision">Precision: ${veg.cuts.precision} (Rs. ${veg.prices.precision}/kg)</option>`;
+
+                if (!optionsHtml) return;
+
+                const card = document.createElement('div');
+                card.className = "bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm space-y-2";
+                card.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <h4 class="font-bold text-slate-800 text-sm">${veg.name}</h4>
+                        <span class="text-[10px] bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded">0% Waste</span>
+                    </div>
+                    <div class="text-xs space-y-1">
+                        <label class="block text-[10px] font-semibold text-slate-500">Cut Style & Rate:</label>
+                        <select id="cut-tier-${veg.id}" class="w-full border border-slate-200 rounded-lg p-1.5 text-xs outline-none focus:border-emerald-500">${optionsHtml}</select>
+                    </div>
+                    <div class="flex items-center gap-2 pt-1">
+                        <input type="number" id="qty-${veg.id}" value="1" min="0.5" step="0.5" class="w-20 border border-slate-200 rounded-lg p-1 text-xs text-center font-bold">
+                        <button onclick="addToBasket('${veg.id}')" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-1.5 rounded-lg transition">+ Add to Basket</button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function addToBasket(vegId) {
+            const veg = catalogData.find(v => v.id === vegId);
+            const tier = document.getElementById(`cut-tier-${vegId}`).value;
+            const cutName = veg.cuts[tier];
+            const price = veg.prices[tier];
+            const qty = parseFloat(document.getElementById(`qty-${vegId}`).value) || 1;
+
+            const key = `${vegId}_${tier}`;
+            if (basket[key]) basket[key].qty += qty;
+            else basket[key] = { vegId, vegName: veg.name, cutName, tier, unitPrice: price, qty };
+            renderBasket();
+        }
+
+        function renderBasket() {
+            const container = document.getElementById('basket-container');
+            const totalEl = document.getElementById('total-disp');
+            const keys = Object.keys(basket);
+
+            if (keys.length === 0) {
+                container.innerHTML = '<p class="text-slate-400 italic text-center py-2">Select items from catalog above.</p>';
+                totalEl.innerText = 'Rs. 0.00';
+                return;
+            }
+
+            container.innerHTML = '';
+            let total = 0;
+            keys.forEach(k => {
+                const item = basket[k];
+                const sub = item.unitPrice * item.qty;
+                total += sub;
+                container.innerHTML += `
+                    <div class="flex justify-between items-center bg-slate-50 p-2 rounded-lg">
+                        <div><b>${item.vegName}</b> (${item.cutName})<br><span class="text-slate-500">${item.qty} kg @ Rs. ${item.unitPrice}</span></div>
+                        <div class="font-bold text-emerald-800">Rs. ${sub.toFixed(2)}</div>
+                    </div>
+                `;
+            });
+            totalEl.innerText = `Rs. ${total.toFixed(2)}`;
+        }
+
+        function clearBasket() { 
+            basket = {}; 
+            renderBasket(); 
+            document.getElementById('btn-mobile-print').classList.add('hidden');
+        }
+
+        async function submitOrderToBackend() {
+            const keys = Object.keys(basket);
+            if (keys.length === 0) { alert("Please add at least one vegetable!"); return; }
+
+            let total = 0; let items = [];
+            keys.forEach(k => { const item = basket[k]; total += item.unitPrice * item.qty; items.push(item); });
+
+            const payload = { client_id: activeClient.id, client_name: activeClient.name, route: activeClient.route, items: items, total: total };
+
+            try {
+                const res = await fetch('/api/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const result = await res.json();
+                if (result.status === 'success') {
+                    alert(`✓ Order ${result.order_code} submitted successfully!`);
+                    lastPlacedOrder = { code: result.order_code, items: items, total: total };
+                    document.getElementById('btn-mobile-print').classList.remove('hidden');
+                    clearBasket();
+                    loadClientProfile();
+                }
+            } catch (err) { alert("Error submitting order!"); }
+        }
+
+        function printMobileReceipt() {
+            if (!lastPlacedOrder) return;
+            const container = document.getElementById('mobile-print-receipt');
+            
+            let itemRows = lastPlacedOrder.items.map(i => `
+                <tr>
+                    <td style="padding:2px 0; text-align:left;">${i.vegName}<br><span style="font-size:7px;">${i.cutName}</span></td>
+                    <td style="text-align:right; padding:2px 0;">${i.qty}k</td>
+                    <td style="text-align:right; padding:2px 0;">${(i.qty * i.unitPrice).toFixed(0)}</td>
+                </tr>
+            `).join('');
+
+            container.innerHTML = `
+                <div style="text-align:center; border-bottom:1px dashed #000; padding-bottom:3px; margin-bottom:3px;">
+                    <b style="font-size:10px;">PRAEPARO FRESH CUT</b><br>
+                    <span style="font-size:8px;">Customer Order Receipt</span><br>
+                    <b style="font-size:9px;">${lastPlacedOrder.code}</b>
+                </div>
+                <div style="font-size:8px; margin-bottom:3px;">
+                    <b>Client:</b> ${activeClient.name}<br>
+                    <b>Route:</b> ${activeClient.route}
+                </div>
+                <hr style="border:0.5px dashed #000; margin:2px 0;">
+                <table style="width:100%; font-size:8px; border-collapse:collapse;">
+                    <thead>
+                        <tr style="border-bottom:1px solid #000;">
+                            <th style="text-align:left;">Item</th>
+                            <th style="text-align:right;">Qty</th>
+                            <th style="text-align:right;">Amt</th>
+                        </tr>
+                    </thead>
+                    <tbody>${itemRows}</tbody>
+                </table>
+                <hr style="border:0.5px dashed #000; margin:3px 0;">
+                <div style="display:flex; justify-between; font-weight:bold; font-size:9px;">
+                    <span>TOTAL COD:</span>
+                    <span>Rs. ${lastPlacedOrder.total.toFixed(2)}</span>
+                </div>
+            `;
+            window.print();
+        }
+
+        loadClientProfile();
+        loadCatalog();
+    </script>
+</body>
+</html>

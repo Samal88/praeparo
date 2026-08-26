@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Praeparo Central Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        
+        /* A5 KITCHEN ORDER TICKET (KOT) PRINT SETUP */
+        @media print {
+            @page {
+                size: A5 portrait;
+                margin: 6mm;
+            }
+            body { background: white !important; }
+            body * { visibility: hidden; }
+            #print-kot-area, #print-kot-area * { visibility: visible; }
+            #print-kot-area { 
+                position: absolute; 
+                left: 0; 
+                top: 0; 
+                width: 100%; 
+                display: block !important; 
+                font-family: sans-serif; 
+                color: black !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen pb-12">
+
+    <!-- Header Navigation -->
+    <header class="bg-slate-950 border-b border-slate-800 p-4 sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <span class="text-3xl">⚙️</span>
+                <div>
+                    <h1 class="font-extrabold text-lg tracking-wider text-emerald-400">PRAEPARO CENTRAL ADMIN</h1>
+                    <p class="text-xs text-slate-400">Kitchen Operations & Accounts Manager</p>
+                </div>
+            </div>
+
+            <!-- Navigation Tabs -->
+            <div class="flex bg-slate-900 p-1 rounded-xl border border-slate-800 space-x-1">
+                <button onclick="switchTab('orders')" id="tab-btn-orders" class="px-4 py-2 rounded-lg text-xs font-bold transition bg-emerald-600 text-white shadow">
+                    📦 Live Orders
+                </button>
+                <button onclick="switchTab('clients')" id="tab-btn-clients" class="px-4 py-2 rounded-lg text-xs font-bold transition text-slate-400 hover:text-white">
+                    👥 B2B Clients & Accounts
+                </button>
+                <button onclick="switchTab('catalog')" id="tab-btn-catalog" class="px-4 py-2 rounded-lg text-xs font-bold transition text-slate-400 hover:text-white">
+                    🥗 Vegetable Catalog
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 mt-6">
+
+        <!-- TAB 1: LIVE ORDERS STREAM -->
+        <div id="tab-orders" class="space-y-4">
+            <div class="bg-slate-800/90 rounded-2xl border border-slate-700 shadow-xl overflow-hidden">
+                <div class="p-4 border-b border-slate-700 flex justify-between items-center bg-slate-950/50">
+                    <h2 class="font-extrabold text-sm uppercase text-slate-200 tracking-wider">📦 Incoming B2B Kitchen Orders</h2>
+                    <button onclick="loadAdminData()" class="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-1.5 rounded-lg font-bold border border-slate-700">🔄 Refresh Stream</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead>
+                            <tr class="bg-slate-950 text-slate-400 font-bold border-b border-slate-800 uppercase tracking-wider">
+                                <th class="p-3.5">Order Code</th>
+                                <th class="p-3.5">Customer & Route</th>
+                                <th class="p-3.5">Items & Cut Styles</th>
+                                <th class="p-3.5">Total Amount</th>
+                                <th class="p-3.5">Payment Status</th>
+                                <th class="p-3.5 text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orders-table-body" class="divide-y divide-slate-700/50 text-slate-300">
+                            <tr><td colspan="6" class="p-8 text-center text-slate-500 italic">Fetching orders...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: CLIENT LEDGER -->
+        <div id="tab-clients" class="space-y-4 hidden">
+            <div class="bg-slate-800/90 rounded-2xl border border-slate-700 shadow-xl overflow-hidden">
+                <div class="p-4 border-b border-slate-700 bg-slate-950/50 flex justify-between items-center flex-wrap gap-2">
+                    <div>
+                        <h2 class="font-extrabold text-sm uppercase text-slate-200 tracking-wider">👥 B2B Client Profiles & Statements</h2>
+                    </div>
+                    <button onclick="toggleClientModal(true)" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3.5 py-2 rounded-lg font-bold shadow">➕ Add New Client Profile</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead>
+                            <tr class="bg-slate-950 text-slate-400 font-bold border-b border-slate-800 uppercase">
+                                <th class="p-3.5">ID</th>
+                                <th class="p-3.5">Hotel / Canteen Name</th>
+                                <th class="p-3.5">Delivery Route</th>
+                                <th class="p-3.5">WhatsApp Mobile</th>
+                                <th class="p-3.5">Total Billed</th>
+                                <th class="p-3.5">Pending COD Balance</th>
+                                <th class="p-3.5 text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="clients-table-body" class="divide-y divide-slate-700/50 text-slate-300"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: CATALOG & PRICING MANAGER -->
+        <div id="tab-catalog" class="space-y-4 hidden">
+            <div class="bg-slate-800/90 p-5 rounded-2xl border border-slate-700 shadow-xl space-y-4">
+                <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                    <h2 class="font-extrabold text-sm uppercase text-slate-200">🥗 Vegetable Catalog & Variation Rates</h2>
+                    <button onclick="toggleAddModal(true)" class="bg-emerald-600 text-white text-xs px-3.5 py-2 rounded-lg font-bold">➕ Add New Vegetable</button>
+                </div>
+                <div id="price-manager-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-4"></div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- MODAL CONTAINERS -->
+    <div id="qr-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-slate-700 p-6 rounded-2xl w-full max-w-sm space-y-4 text-center shadow-2xl">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <h3 class="font-black text-emerald-400 text-base" id="qr-modal-title">Client QR Code</h3>
+                <button onclick="toggleQRModal(false)" class="text-slate-400 hover:text-white font-bold">✕</button>
+            </div>
+            <div class="bg-white p-4 rounded-xl inline-block border-4 border-emerald-500 shadow-inner">
+                <img id="qr-image" src="" alt="Client QR Code" class="w-48 h-48 mx-auto">
+            </div>
+            <p class="text-[11px] text-slate-400 font-mono" id="qr-modal-link"></p>
+            <div class="pt-2">
+                <a id="qr-download-btn" href="" download="" target="_blank" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 rounded-xl transition text-xs flex items-center justify-center gap-1">
+                    ⬇️ Download High-Res QR Code
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div id="client-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-slate-700 p-6 rounded-2xl w-full max-w-md space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <h3 class="font-black text-blue-400 text-base">👤 Add New B2B Client Profile</h3>
+                <button onclick="toggleClientModal(false)" class="text-slate-400 hover:text-white font-bold">✕</button>
+            </div>
+            <form onsubmit="handleAddClient(event)" class="space-y-3 text-xs">
+                <div><label class="block font-bold text-slate-300 mb-1">Client ID</label><input type="text" id="client-id" required placeholder="e.g. SHOP_004" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-white"></div>
+                <div><label class="block font-bold text-slate-300 mb-1">Hotel / Canteen Name</label><input type="text" id="client-name" required placeholder="e.g. Grand Hotel" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-white"></div>
+                <div><label class="block font-bold text-slate-300 mb-1">Delivery Route</label><input type="text" id="client-route" required placeholder="e.g. Meegoda Town" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-white"></div>
+                <div><label class="block font-bold text-slate-300 mb-1">WhatsApp Number</label><input type="text" id="client-phone" placeholder="e.g. 0771234567" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-white"></div>
+                <div class="pt-2 flex justify-end gap-2">
+                    <button type="button" onclick="toggleClientModal(false)" class="bg-slate-800 text-slate-300 px-4 py-2 rounded-lg font-bold">Cancel</button>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-lg font-bold">Save Profile</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="add-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-slate-700 p-6 rounded-2xl w-full max-w-lg space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <h3 class="font-black text-emerald-400 text-base">➕ Add New Vegetable Product</h3>
+                <button onclick="toggleAddModal(false)" class="text-slate-400 hover:text-white font-bold">✕</button>
+            </div>
+            <form onsubmit="handleAddProduct(event)" class="space-y-3 text-xs">
+                <div><label class="block font-bold text-slate-300 mb-1">Product ID</label><input type="text" id="new-id" required placeholder="e.g. beetroot" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-white"></div>
+                <div><label class="block font-bold text-slate-300 mb-1">Vegetable Name</label><input type="text" id="new-name" required placeholder="Beetroot" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-white"></div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div><label class="block font-bold text-slate-300 mb-1">Wholesale Rate (Rs.)</label><input type="number" id="new-wholesale" required placeholder="250" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-white"></div>
+                    <div><label class="block font-bold text-slate-300 mb-1">Wastage %</label><input type="number" id="new-wastage" required placeholder="15" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-white"></div>
+                </div>
+                <div class="space-y-2 pt-2 border-t border-slate-800">
+                    <span class="font-bold text-slate-300 block">Cut Variations:</span>
+                    <div class="flex items-center justify-between bg-slate-950 p-2 rounded"><input type="text" id="new-std-cut" value="Curry Chunks" class="bg-transparent text-white font-bold flex-1"><label class="text-slate-400 text-[11px]"><input type="checkbox" id="new-std-act" checked> Active</label></div>
+                    <div class="flex items-center justify-between bg-slate-950 p-2 rounded"><input type="text" id="new-com-cut" value="Medium Dice" class="bg-transparent text-white font-bold flex-1"><label class="text-slate-400 text-[11px]"><input type="checkbox" id="new-com-act" checked> Active</label></div>
+                    <div class="flex items-center justify-between bg-slate-950 p-2 rounded"><input type="text" id="new-pre-cut" value="Julienne" class="bg-transparent text-white font-bold flex-1"><label class="text-slate-400 text-[11px]"><input type="checkbox" id="new-pre-act"> Active</label></div>
+                </div>
+                <div class="pt-2 flex justify-end gap-2">
+                    <button type="button" onclick="toggleAddModal(false)" class="bg-slate-800 text-slate-300 px-4 py-2 rounded-lg font-bold">Cancel</button>
+                    <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 rounded-lg font-bold">Save Product</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- HIDDEN A5 KOT PRINT CONTAINER -->
+    <div id="print-kot-area"></div>
+
+    <script>
+        let rawOrders = [];
+        let rawClients = [];
+        let rawCatalog = [];
+
+        function switchTab(tabName) {
+            ['orders', 'clients', 'catalog'].forEach(t => {
+                document.getElementById(`tab-${t}`).classList.add('hidden');
+                document.getElementById(`tab-btn-${t}`).className = "px-4 py-2 rounded-lg text-xs font-bold transition text-slate-400 hover:text-white";
+            });
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+            document.getElementById(`tab-btn-${tabName}`).className = "px-4 py-2 rounded-lg text-xs font-bold transition bg-emerald-600 text-white shadow";
+        }
+
+        async function loadAdminData() {
+            try {
+                const resOrders = await fetch('/api/admin/orders');
+                rawOrders = await resOrders.json();
+                renderOrdersTable();
+
+                const resClients = await fetch('/api/admin/clients');
+                rawClients = await resClients.json();
+                renderClientsTable();
+
+                const resCatalog = await fetch('/api/catalog');
+                rawCatalog = await resCatalog.json();
+                renderPriceManager();
+            } catch (err) { console.error("Admin load error:", err); }
+        }
+
+        function renderOrdersTable() {
+            const tbody = document.getElementById('orders-table-body');
+            tbody.innerHTML = '';
+
+            if (rawOrders.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-500 italic">No orders received yet.</td></tr>`;
+            }
+
+            rawOrders.forEach(ord => {
+                let itemsHtml = ord.items.map(i => `<div class="py-0.5">• <b>${i.vegName}</b> (${i.cutName}): <span class="text-emerald-400 font-bold">${i.qty} kg</span></div>`).join('');
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-800/50 transition";
+                tr.innerHTML = `
+                    <td class="p-3.5 font-extrabold text-emerald-400">${ord.code}<br><span class="text-[10px] text-slate-500 font-normal">${ord.created_at}</span></td>
+                    <td class="p-3.5"><span class="font-bold text-slate-100">${ord.client_name}</span><br><span class="text-[10px] text-slate-400">${ord.route}</span></td>
+                    <td class="p-3.5 text-[11px]">${itemsHtml}</td>
+                    <td class="p-3.5 font-black text-emerald-400 text-sm">Rs. ${ord.total.toFixed(2)}</td>
+                    <td class="p-3.5"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${ord.payment === 'Paid' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-amber-950 text-amber-400 border border-amber-800'}">${ord.payment}</span></td>
+                    <td class="p-3.5 text-center space-x-1">
+                        <button onclick="printA5KOT('${ord.code}')" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded text-[11px] font-bold shadow">
+                            🖨️ KOT (A5)
+                        </button>
+                        <button onclick="sendWhatsAppBill('${ord.code}')" class="bg-green-700 hover:bg-green-600 text-white px-2 py-1 rounded text-[11px] font-bold">📲 WA</button>
+                        ${ord.payment !== 'Paid' ? `<button onclick="markOrderPaid(${ord.id})" class="bg-slate-700 hover:bg-slate-600 text-white px-2 py-1 rounded text-[11px] font-bold">💵 Paid</button>` : '<span class="text-xs text-emerald-500 font-bold">✓ Settled</span>'}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        /* PRINT A5 SIZE KITCHEN ORDER TICKET (KOT) */
+        function printA5KOT(orderCode) {
+            const ord = rawOrders.find(o => o.code === orderCode);
+            if (!ord) return;
+
+            const kotArea = document.getElementById('print-kot-area');
+            
+            let itemRows = ord.items.map((i, idx) => `
+                <tr style="border-bottom: 1px solid #ddd;">
+                    <td style="padding: 10px; font-size: 14px; font-weight: bold;">${idx + 1}. ${i.vegName}</td>
+                    <td style="padding: 10px; font-size: 13px; font-weight: bold; color: #222;">${i.cutName}</td>
+                    <td style="padding: 10px; font-size: 18px; font-weight: 900; text-align: right;">${i.qty} KG</td>
+                </tr>
+            `).join('');
+
+            kotArea.innerHTML = `
+                <div style="border: 2px solid #000; padding: 15px; border-radius: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #000; padding-bottom: 10px; margin-bottom: 10px;">
+                        <div>
+                            <h1 style="margin: 0; font-size: 20px; font-weight: 900;">PRAEPARO KITCHEN TICKET (KOT)</h1>
+                            <p style="margin: 2px 0; font-size: 12px; font-weight: bold; color: #555;">Fresh Cut Processing Orders</p>
+                        </div>
+                        <div style="text-align: right;">
+                            <h2 style="margin: 0; font-size: 18px; font-weight: 900; color: #d97706;">${ord.code}</h2>
+                            <p style="margin: 0; font-size: 10px;">${ord.created_at}</p>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; background: #f3f4f6; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 12px;">
+                        <div><b>CUSTOMER:</b> <span style="font-size: 14px; font-weight: bold;">${ord.client_name}</span></div>
+                        <div><b>ROUTE:</b> <span style="font-size: 14px; font-weight: bold;">${ord.route}</span></div>
+                    </div>
+
+                    <table style="width: 100%; border-collapse: collapse; text-align: left; margin-bottom: 15px;">
+                        <thead>
+                            <tr style="background: #000; color: #fff; font-size: 11px;">
+                                <th style="padding: 8px;">VEGETABLE ITEM</th>
+                                <th style="padding: 8px;">REQUIRED CUT STYLE</th>
+                                <th style="padding: 8px; text-align: right;">QUANTITY</th>
+                            </tr>
+                        </thead>
+                        <tbody>${itemRows}</tbody>
+                    </table>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-top: 2px solid #000; padding-top: 10px;">
+                        <div style="font-size: 10px;">
+                            <b>PREPARED BY:</b> _______________ &nbsp;&nbsp;&nbsp; <b>CHECKED BY:</b> _______________
+                        </div>
+                        <div style="font-size: 15px; font-weight: 900;">
+                            TOTAL BILL: Rs. ${ord.total.toFixed(2)}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            window.print();
+        }
+
+        function renderClientsTable() {
+            const tbody = document.getElementById('clients-table-body');
+            tbody.innerHTML = '';
+            rawClients.forEach(c => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-800/50";
+                tr.innerHTML = `
+                    <td class="p-3.5 font-bold text-blue-400">${c.id}</td>
+                    <td class="p-3.5 font-bold text-white"><input type="text" id="client-name-${c.id}" value="${c.name}" class="bg-slate-900 border border-slate-700 px-2 py-1 rounded text-xs text-white font-bold w-full"></td>
+                    <td class="p-3.5"><input type="text" id="client-route-${c.id}" value="${c.route}" class="bg-slate-900 border border-slate-700 px-2 py-1 rounded text-xs text-slate-300 w-full"></td>
+                    <td class="p-3.5"><input type="text" id="client-phone-${c.id}" value="${c.phone}" class="bg-slate-900 border border-slate-700 px-2 py-1 rounded text-xs text-emerald-400 font-bold w-full"></td>
+                    <td class="p-3.5 font-bold text-slate-300">Rs. ${c.total_billed.toFixed(2)}</td>
+                    <td class="p-3.5 font-black ${c.pending_balance > 0 ? 'text-amber-400' : 'text-emerald-400'}">Rs. ${c.pending_balance.toFixed(2)}</td>
+                    <td class="p-3.5 text-center space-x-1">
+                        <button onclick="sendWhatsAppStatement('${c.id}')" class="bg-green-700 hover:bg-green-600 text-white px-2 py-1 rounded text-[11px] font-bold">📲 Statement</button>
+                        <button onclick="openQRModal('${c.id}', '${c.name}')" class="bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded text-[11px] font-bold">📱 QR</button>
+                        <button onclick="updateClientProfile('${c.id}')" class="bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-1 rounded text-[11px] font-bold">💾 Save</button>
+                        <button onclick="deleteClient('${c.id}')" class="bg-red-900/80 text-red-300 px-2 py-1 rounded text-[11px] font-bold">🗑️</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function sendWhatsAppBill(orderCode) {
+            const ord = rawOrders.find(o => o.code === orderCode);
+            if (!ord) return;
+            let phone = ord.phone ? ord.phone.replace(/[^0-9]/g, '') : '';
+            if (phone.startsWith('0')) phone = '94' + phone.substring(1);
+
+            let msg = `🥗 *PRAEPARO FRESH CUT PRODUCE*\n*Order Receipt:* ${ord.code}\n*Customer:* ${ord.client_name}\n-----------------------------------\n`;
+            ord.items.forEach(i => { msg += `• ${i.vegName} (${i.cutName}): ${i.qty}kg @ Rs.${i.unitPrice} = Rs.${(i.qty * i.unitPrice).toFixed(2)}\n`; });
+            msg += `-----------------------------------\n*TOTAL BILL:* Rs.${ord.total.toFixed(2)}\n*Status:* ${ord.payment}`;
+
+            window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+        }
+
+        function sendWhatsAppStatement(clientId) {
+            const client = rawClients.find(c => c.id === clientId);
+            if (!client) return;
+            let phone = client.phone ? client.phone.replace(/[^0-9]/g, '') : '';
+            if (phone.startsWith('0')) phone = '94' + phone.substring(1);
+
+            let msg = `🥗 *PRAEPARO FRESH CUT PRODUCE*\n*ACCOUNT STATEMENT*\n*Client:* ${client.name}\n-----------------------------------\n• Total Billed: Rs. ${client.total_billed.toFixed(2)}\n• Total Paid: Rs. ${client.total_paid.toFixed(2)}\n-----------------------------------\n*OUTSTANDING COD BALANCE:* Rs. ${client.pending_balance.toFixed(2)}`;
+            window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+        }
+
+        function openQRModal(clientId, clientName) {
+            const host = window.location.origin;
+            const fullOrderUrl = `${host}/order?cid=${clientId}`;
+            const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(fullOrderUrl)}`;
+
+            document.getElementById('qr-modal-title').innerText = `${clientName} (${clientId})`;
+            document.getElementById('qr-image').src = qrApiUrl;
+            document.getElementById('qr-modal-link').innerText = fullOrderUrl;
+            document.getElementById('qr-download-btn').href = qrApiUrl;
+            document.getElementById('qr-download-btn').download = `Praeparo_QR_${clientId}.png`;
+
+            toggleQRModal(true);
+        }
+
+        async function updateClientProfile(clientId) {
+            const payload = {
+                id: clientId,
+                name: document.getElementById(`client-name-${clientId}`).value.trim(),
+                route: document.getElementById(`client-route-${clientId}`).value.trim(),
+                phone: document.getElementById(`client-phone-${clientId}`).value.trim()
+            };
+            const res = await fetch('/api/admin/client/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            if ((await res.json()).status === 'success') { alert(`✓ Client ${clientId} updated!`); loadAdminData(); }
+        }
+
+        async function deleteClient(clientId) {
+            if (!confirm(`Delete Client '${clientId}'?`)) return;
+            const res = await fetch('/api/admin/client/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: clientId }) });
+            if ((await res.json()).status === 'success') loadAdminData();
+        }
+
+        async function handleAddClient(e) {
+            e.preventDefault();
+            const payload = {
+                id: document.getElementById('client-id').value.trim(),
+                name: document.getElementById('client-name').value.trim(),
+                route: document.getElementById('client-route').value.trim(),
+                phone: document.getElementById('client-phone').value.trim()
+            };
+            const res = await fetch('/api/admin/client/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            if ((await res.json()).status === 'success') { toggleClientModal(false); loadAdminData(); }
+        }
+
+        function renderPriceManager() {
+            const container = document.getElementById('price-manager-grid');
+            container.innerHTML = '';
+            rawCatalog.forEach(veg => {
+                const box = document.createElement('div');
+                box.className = "bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3 shadow-lg";
+                box.innerHTML = `
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                        <h3 class="font-bold text-sm text-white">${veg.name}</h3>
+                        <button onclick="deleteProduct('${veg.id}')" class="text-red-400 text-[10px] font-bold hover:underline">🗑️ Delete</button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div><label class="block text-[10px] text-slate-400 mb-0.5">Wholesale Rate (Rs.)</label><input type="number" id="mkt-price-${veg.id}" value="${veg.wholesale}" class="w-full bg-slate-900 border border-slate-700 text-emerald-400 font-bold p-1 rounded text-center"></div>
+                        <div><label class="block text-[10px] text-slate-400 mb-0.5">Wastage %</label><input type="number" id="mkt-waste-${veg.id}" value="${veg.wastage}" class="w-full bg-slate-900 border border-slate-700 text-amber-400 font-bold p-1 rounded text-center"></div>
+                    </div>
+                    <button onclick="updateProductRates('${veg.id}')" class="w-full bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold py-1.5 rounded-lg">💾 Update Product Rates</button>
+                `;
+                container.appendChild(box);
+            });
+        }
+
+        async function updateProductRates(vegId) {
+            const payload = {
+                veg_id: vegId,
+                wholesale_price: parseFloat(document.getElementById(`mkt-price-${vegId}`).value),
+                wastage_pct: parseFloat(document.getElementById(`mkt-waste-${vegId}`).value)
+            };
+            const res = await fetch('/api/admin/product/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            if ((await res.json()).status === 'success') loadAdminData();
+        }
+
+        async function handleAddProduct(e) {
+            e.preventDefault();
+            const payload = {
+                id: document.getElementById('new-id').value.trim().toLowerCase(),
+                name: document.getElementById('new-name').value.trim(),
+                wholesale: parseFloat(document.getElementById('new-wholesale').value),
+                wastage: parseFloat(document.getElementById('new-wastage').value),
+                std_cut: document.getElementById('new-std-cut').value.trim(),
+                com_cut: document.getElementById('new-com-cut').value.trim(),
+                pre_cut: document.getElementById('new-pre-cut').value.trim(),
+                std_active: document.getElementById('new-std-act').checked ? 1 : 0,
+                com_active: document.getElementById('new-com-act').checked ? 1 : 0,
+                pre_active: document.getElementById('new-pre-act').checked ? 1 : 0
+            };
+            const res = await fetch('/api/admin/product/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            if ((await res.json()).status === 'success') { toggleAddModal(false); loadAdminData(); }
+        }
+
+        async function deleteProduct(vegId) {
+            if (!confirm(`Delete product ${vegId}?`)) return;
+            const res = await fetch('/api/admin/product/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ veg_id: vegId }) });
+            if ((await res.json()).status === 'success') loadAdminData();
+        }
+
+        async function markOrderPaid(orderId) {
+            const res = await fetch('/api/admin/order/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order_id: orderId, payment: 'Paid', status: 'Completed' }) });
+            if ((await res.json()).status === 'success') loadAdminData();
+        }
+
+        function toggleAddModal(show) { document.getElementById('add-modal').classList.toggle('hidden', !show); }
+        function toggleClientModal(show) { document.getElementById('client-modal').classList.toggle('hidden', !show); }
+        function toggleQRModal(show) { document.getElementById('qr-modal').classList.toggle('hidden', !show); }
+
+        loadAdminData();
+    </script>
+</body>
+</html>
