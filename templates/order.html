@@ -86,9 +86,9 @@
                     🚀 Send Order to Central Kitchen
                 </button>
 
-                <!-- 58mm Thermal Print Button -->
-                <button id="btn-mobile-print" onclick="printMobileReceipt()" class="hidden w-full bg-slate-900 hover:bg-slate-800 text-emerald-400 font-bold py-2.5 rounded-xl border border-slate-700 text-xs flex items-center justify-center gap-2 shadow">
-                    🖨️ Print 58mm Thermal Receipt
+                <!-- Dedicated Print Receipt Button -->
+                <button id="btn-mobile-print" onclick="printMobileReceipt()" class="hidden w-full bg-slate-900 hover:bg-slate-800 text-emerald-400 font-bold py-3 rounded-xl border border-slate-700 text-xs flex items-center justify-center gap-2 shadow">
+                    🖨️ Print 58mm Thermal Receipt (PT-210)
                 </button>
             </div>
         </div>
@@ -201,8 +201,7 @@
 
         function clearBasket() { 
             basket = {}; 
-            renderBasket(); 
-            document.getElementById('btn-mobile-print').classList.add('hidden');
+            renderBasket();
         }
 
         async function submitOrderToBackend() {
@@ -218,24 +217,35 @@
                 const res = await fetch('/api/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 const result = await res.json();
                 if (result.status === 'success') {
-                    alert(`✓ Order ${result.order_code} submitted successfully!`);
+                    alert(`✓ Order ${result.order_code} successfully submitted!`);
+                    
                     lastPlacedOrder = { code: result.order_code, items: items, total: total };
-                    document.getElementById('btn-mobile-print').classList.remove('hidden');
+                    
                     clearBasket();
+
+                    const printBtn = document.getElementById('btn-mobile-print');
+                    if (printBtn) {
+                        printBtn.classList.remove('hidden');
+                        printBtn.scrollIntoView({ behavior: 'smooth' });
+                    }
+
                     loadClientProfile();
                 }
             } catch (err) { alert("Error submitting order!"); }
         }
 
         function printMobileReceipt() {
-            if (!lastPlacedOrder) return;
+            if (!lastPlacedOrder) {
+                alert("No recent order found to print!");
+                return;
+            }
             const container = document.getElementById('mobile-print-receipt');
             
             let itemRows = lastPlacedOrder.items.map(i => `
                 <tr>
-                    <td style="padding:2px 0; text-align:left;">${i.vegName}<br><span style="font-size:7px;">${i.cutName}</span></td>
-                    <td style="text-align:right; padding:2px 0;">${i.qty}k</td>
-                    <td style="text-align:right; padding:2px 0;">${(i.qty * i.unitPrice).toFixed(0)}</td>
+                    <td style="padding:2px 0; text-align:left;">${i.vegName}<br><span style="font-size:7px; color:#333;">${i.cutName}</span></td>
+                    <td style="text-align:right; padding:2px 0; vertical-align:top;">${i.qty}k</td>
+                    <td style="text-align:right; padding:2px 0; vertical-align:top;">${(i.qty * i.unitPrice).toFixed(0)}</td>
                 </tr>
             `).join('');
 
@@ -261,7 +271,7 @@
                     <tbody>${itemRows}</tbody>
                 </table>
                 <hr style="border:0.5px dashed #000; margin:3px 0;">
-                <div style="display:flex; justify-between; font-weight:bold; font-size:9px;">
+                <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:9px;">
                     <span>TOTAL COD:</span>
                     <span>Rs. ${lastPlacedOrder.total.toFixed(2)}</span>
                 </div>
