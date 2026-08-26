@@ -3,26 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Praeparo - B2B Vegetable Ordering Desk</title>
+    <title>Praeparo - Mobile Order & Payment Desk</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
-        
-        /* 58mm Thermal Printer (PT-210) Print Setup */
         @media print {
             body { background: white !important; }
             body * { visibility: hidden; }
             #mobile-print-receipt, #mobile-print-receipt * { visibility: visible; }
             #mobile-print-receipt { 
-                position: absolute; 
-                left: 0; 
-                top: 0; 
-                width: 48mm; 
-                display: block !important; 
-                font-family: monospace; 
-                font-size: 8px; 
-                color: black !important;
+                position: absolute; left: 0; top: 0; width: 48mm; 
+                display: block !important; font-family: monospace; font-size: 8px; color: black !important;
             }
         }
     </style>
@@ -44,8 +36,16 @@
 
     <main class="max-w-md mx-auto px-4 mt-4 space-y-4">
 
-        <!-- Client Profile Header -->
-        <div class="bg-gradient-to-r from-emerald-800 to-green-700 text-white p-4 rounded-2xl shadow-sm space-y-2">
+        <!-- Select Shop Dropdown -->
+        <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">🏪 Select Shop / Client:</label>
+            <select id="client-selector" onchange="onClientChange(this.value)" class="w-full border border-slate-300 rounded-lg p-2 text-xs font-bold text-slate-800 outline-none focus:border-emerald-500">
+                <option value="SHOP_001">Grand Hotel Kitchen (SHOP_001)</option>
+            </select>
+        </div>
+
+        <!-- Client Profile Header & Payment Collection -->
+        <div class="bg-gradient-to-r from-emerald-800 to-green-700 text-white p-4 rounded-2xl shadow-sm space-y-3">
             <div class="flex justify-between items-center">
                 <span class="bg-emerald-600/90 text-emerald-100 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">Verified Partner</span>
                 <span class="text-[11px] bg-amber-950/80 text-amber-300 border border-amber-700/50 px-2 py-0.5 rounded-lg font-bold" id="shop-balance-badge">
@@ -53,8 +53,19 @@
                 </span>
             </div>
             <div>
-                <h2 class="text-lg font-black" id="shop-name-disp">Loading Partner Profile...</h2>
+                <h2 class="text-lg font-black" id="shop-name-disp">Loading Profile...</h2>
                 <p class="text-xs text-emerald-100" id="shop-route-disp">Route: General Route</p>
+            </div>
+
+            <!-- Field Cash Payment Collector -->
+            <div class="pt-2 border-t border-emerald-600/60 space-y-2">
+                <span class="text-[11px] font-bold text-emerald-200 block">💵 Cash Payment Collection (කඩයෙන් සල්ලි ගැනීම):</span>
+                <div class="flex gap-2">
+                    <input type="number" id="pay-amount-input" placeholder="Amount (Rs.)" class="w-1/2 p-2 text-xs font-bold rounded-lg text-slate-900 outline-none">
+                    <button onclick="recordFieldPayment()" class="w-1/2 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-extrabold p-2 rounded-lg shadow">
+                        💵 Pay & Print Slip
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -86,8 +97,8 @@
                     🚀 Send Order to Central Kitchen
                 </button>
 
-                <!-- Dedicated Print Receipt Button -->
-                <button id="btn-mobile-print" onclick="printMobileReceipt()" class="hidden w-full bg-slate-900 hover:bg-slate-800 text-emerald-400 font-bold py-3 rounded-xl border border-slate-700 text-xs flex items-center justify-center gap-2 shadow">
+                <!-- Always Available Print Button -->
+                <button onclick="printMobileReceipt()" class="w-full bg-slate-900 hover:bg-slate-800 text-emerald-400 font-bold py-3 rounded-xl border border-slate-700 text-xs flex items-center justify-center gap-2 shadow">
                     🖨️ Print 58mm Thermal Receipt (PT-210)
                 </button>
             </div>
@@ -100,21 +111,72 @@
 
     <script>
         const urlParams = new URLSearchParams(window.location.search);
-        const clientId = urlParams.get('cid') || 'SHOP_001';
+        let clientId = urlParams.get('cid') || 'SHOP_001';
 
         let activeClient = { id: clientId, name: "Loading...", route: "...", pending_balance: 0 };
         let catalogData = [];
         let basket = {};
-        let lastPlacedOrder = null;
+        let lastReceiptData = null;
 
-        async function loadClientProfile() {
+        async function initPage() {
+            await loadAllClientsDropdown();
+            await loadClientProfile(clientId);
+            await loadCatalog();
+        }
+
+        async function loadAllClientsDropdown() {
             try {
-                const res = await fetch(`/api/client/${clientId}`);
+                const res = await fetch('/api/admin/clients');
+                const clients = await res.json();
+                const selector = document.getElementById('client-selector');
+                selector.innerHTML = '';
+                clients.forEach(c => {
+                    selector.innerHTML += `<option value="${c.id}" ${c.id === clientId ? 'selected' : ''}>${c.name} (${c.id})</option>`;
+                });
+            } catch(e) {}
+        }
+
+        function onClientChange(newCid) {
+            clientId = newCid;
+            loadClientProfile(clientId);
+        }
+
+        async function loadClientProfile(id) {
+            try {
+                const res = await fetch(`/api/client/${id}`);
                 activeClient = await res.json();
                 document.getElementById('shop-name-disp').innerText = activeClient.name;
                 document.getElementById('shop-route-disp').innerText = "Route: " + activeClient.route;
                 document.getElementById('shop-balance-badge').innerText = `Pending COD: Rs. ${activeClient.pending_balance.toFixed(2)}`;
             } catch (err) { console.error("Client load error"); }
+        }
+
+        async function recordFieldPayment() {
+            const amtInput = document.getElementById('pay-amount-input');
+            const amt = parseFloat(amtInput.value);
+            if (!amt || amt <= 0) { alert("Please enter a valid paid amount!"); return; }
+
+            try {
+                const res = await fetch('/api/client/pay', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ client_id: activeClient.id, amount: amt })
+                });
+                const result = await res.json();
+                if (result.status === 'success') {
+                    alert(`✓ Payment of Rs. ${amt.toFixed(2)} recorded!`);
+                    amtInput.value = '';
+                    
+                    lastReceiptData = {
+                        type: 'PAYMENT',
+                        amount: amt,
+                        date: new Date().toLocaleString()
+                    };
+                    
+                    await loadClientProfile(activeClient.id);
+                    printMobileReceipt();
+                }
+            } catch (err) { alert("Payment recording failed!"); }
         }
 
         async function loadCatalog() {
@@ -130,13 +192,11 @@
         function renderCatalog() {
             const container = document.getElementById('catalog-container');
             container.innerHTML = '';
-
             catalogData.forEach(veg => {
                 let optionsHtml = '';
                 if (veg.active.standard) optionsHtml += `<option value="standard">Standard: ${veg.cuts.standard} (Rs. ${veg.prices.standard}/kg)</option>`;
                 if (veg.active.commercial) optionsHtml += `<option value="commercial" ${veg.active.standard ? '' : 'selected'}>Commercial: ${veg.cuts.commercial} (Rs. ${veg.prices.commercial}/kg)</option>`;
                 if (veg.active.precision) optionsHtml += `<option value="precision">Precision: ${veg.cuts.precision} (Rs. ${veg.prices.precision}/kg)</option>`;
-
                 if (!optionsHtml) return;
 
                 const card = document.createElement('div');
@@ -199,10 +259,7 @@
             totalEl.innerText = `Rs. ${total.toFixed(2)}`;
         }
 
-        function clearBasket() { 
-            basket = {}; 
-            renderBasket();
-        }
+        function clearBasket() { basket = {}; renderBasket(); }
 
         async function submitOrderToBackend() {
             const keys = Object.keys(basket);
@@ -217,70 +274,77 @@
                 const res = await fetch('/api/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 const result = await res.json();
                 if (result.status === 'success') {
-                    alert(`✓ Order ${result.order_code} successfully submitted!`);
-                    
-                    lastPlacedOrder = { code: result.order_code, items: items, total: total };
-                    
+                    alert(`✓ Order ${result.order_code} submitted!`);
+                    lastReceiptData = { type: 'ORDER', code: result.order_code, items: items, total: total };
                     clearBasket();
-
-                    const printBtn = document.getElementById('btn-mobile-print');
-                    if (printBtn) {
-                        printBtn.classList.remove('hidden');
-                        printBtn.scrollIntoView({ behavior: 'smooth' });
-                    }
-
-                    loadClientProfile();
+                    loadClientProfile(activeClient.id);
+                    printMobileReceipt();
                 }
             } catch (err) { alert("Error submitting order!"); }
         }
 
         function printMobileReceipt() {
-            if (!lastPlacedOrder) {
-                alert("No recent order found to print!");
+            if (!lastReceiptData) {
+                alert("Please submit an order or record a payment first to print!");
                 return;
             }
             const container = document.getElementById('mobile-print-receipt');
             
-            let itemRows = lastPlacedOrder.items.map(i => `
-                <tr>
-                    <td style="padding:2px 0; text-align:left;">${i.vegName}<br><span style="font-size:7px; color:#333;">${i.cutName}</span></td>
-                    <td style="text-align:right; padding:2px 0; vertical-align:top;">${i.qty}k</td>
-                    <td style="text-align:right; padding:2px 0; vertical-align:top;">${(i.qty * i.unitPrice).toFixed(0)}</td>
-                </tr>
-            `).join('');
+            if (lastReceiptData.type === 'PAYMENT') {
+                container.innerHTML = `
+                    <div style="text-align:center; border-bottom:1px dashed #000; padding-bottom:3px; margin-bottom:3px;">
+                        <b style="font-size:10px;">PRAEPARO FRESH CUT</b><br>
+                        <span style="font-size:8px;">PAYMENT RECEIPT</span>
+                    </div>
+                    <div style="font-size:8px; margin-bottom:3px;">
+                        <b>Client:</b> ${activeClient.name}<br>
+                        <b>Date:</b> ${lastReceiptData.date}
+                    </div>
+                    <hr style="border:0.5px dashed #000; margin:2px 0;">
+                    <div style="font-size:9px; padding:3px 0;">
+                        <b>PAID AMOUNT:</b> Rs. ${lastReceiptData.amount.toFixed(2)}<br>
+                        <b>REMAINING COD:</b> Rs. ${activeClient.pending_balance.toFixed(2)}
+                    </div>
+                    <hr style="border:0.5px dashed #000; margin:3px 0;">
+                    <div style="text-align:center; font-size:7px;">Thank you for your payment!</div>
+                `;
+            } else {
+                let itemRows = lastReceiptData.items.map(i => `
+                    <tr>
+                        <td style="padding:2px 0; text-align:left;">${i.vegName}<br><span style="font-size:7px;">${i.cutName}</span></td>
+                        <td style="text-align:right; padding:2px 0;">${i.qty}k</td>
+                        <td style="text-align:right; padding:2px 0;">${(i.qty * i.unitPrice).toFixed(0)}</td>
+                    </tr>
+                `).join('');
 
-            container.innerHTML = `
-                <div style="text-align:center; border-bottom:1px dashed #000; padding-bottom:3px; margin-bottom:3px;">
-                    <b style="font-size:10px;">PRAEPARO FRESH CUT</b><br>
-                    <span style="font-size:8px;">Customer Order Receipt</span><br>
-                    <b style="font-size:9px;">${lastPlacedOrder.code}</b>
-                </div>
-                <div style="font-size:8px; margin-bottom:3px;">
-                    <b>Client:</b> ${activeClient.name}<br>
-                    <b>Route:</b> ${activeClient.route}
-                </div>
-                <hr style="border:0.5px dashed #000; margin:2px 0;">
-                <table style="width:100%; font-size:8px; border-collapse:collapse;">
-                    <thead>
-                        <tr style="border-bottom:1px solid #000;">
-                            <th style="text-align:left;">Item</th>
-                            <th style="text-align:right;">Qty</th>
-                            <th style="text-align:right;">Amt</th>
-                        </tr>
-                    </thead>
-                    <tbody>${itemRows}</tbody>
-                </table>
-                <hr style="border:0.5px dashed #000; margin:3px 0;">
-                <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:9px;">
-                    <span>TOTAL COD:</span>
-                    <span>Rs. ${lastPlacedOrder.total.toFixed(2)}</span>
-                </div>
-            `;
+                container.innerHTML = `
+                    <div style="text-align:center; border-bottom:1px dashed #000; padding-bottom:3px; margin-bottom:3px;">
+                        <b style="font-size:10px;">PRAEPARO FRESH CUT</b><br>
+                        <span style="font-size:8px;">Order Receipt</span><br>
+                        <b style="font-size:9px;">${lastReceiptData.code}</b>
+                    </div>
+                    <div style="font-size:8px; margin-bottom:3px;">
+                        <b>Client:</b> ${activeClient.name}<br>
+                        <b>Route:</b> ${activeClient.route}
+                    </div>
+                    <hr style="border:0.5px dashed #000; margin:2px 0;">
+                    <table style="width:100%; font-size:8px; border-collapse:collapse;">
+                        <thead>
+                            <tr style="border-bottom:1px solid #000;"><th style="text-align:left;">Item</th><th style="text-align:right;">Qty</th><th style="text-align:right;">Amt</th></tr>
+                        </thead>
+                        <tbody>${itemRows}</tbody>
+                    </table>
+                    <hr style="border:0.5px dashed #000; margin:3px 0;">
+                    <div style="display:flex; justify-between; font-weight:bold; font-size:9px;">
+                        <span>TOTAL BILL:</span><span>Rs. ${lastReceiptData.total.toFixed(2)}</span>
+                    </div>
+                `;
+            }
+
             window.print();
         }
 
-        loadClientProfile();
-        loadCatalog();
+        initPage();
     </script>
 </body>
 </html>

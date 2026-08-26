@@ -294,6 +294,18 @@ def delete_product():
     conn.close()
     return jsonify({'status': 'success'})
 
+@app.route('/api/client/pay', methods=['POST'])
+def client_pay():
+    data = request.json
+    client_id = data.get('client_id')
+    amount = float(data.get('amount', 0))
+    
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("UPDATE clients SET total_paid = total_paid + ?, pending_balance = pending_balance - ? WHERE id = ?", (amount, amount, client_id))
+    conn.commit()
+    conn.close()
+    return jsonify({'status': 'success', 'amount': amount})
 if __name__ == '__main__':
     init_db()
     print("🚀 Praeparo Server Active on http://127.0.0.1:5000")
