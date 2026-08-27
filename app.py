@@ -226,9 +226,12 @@ def delete_client():
 def get_admin_orders():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
+    # 'Paid' නොකළ සක්‍රීය (Pending) ඇණවුම් පමණක් Live Screen එකට ලබා ගනී
     cursor.execute('''
         SELECT o.id, o.order_code, o.client_id, o.client_name, o.route, o.order_json, o.total_amount, o.status, o.payment, o.created_at, c.phone 
-        FROM orders o LEFT JOIN clients c ON o.client_id = c.id ORDER BY o.id DESC
+        FROM orders o LEFT JOIN clients c ON o.client_id = c.id 
+        WHERE o.payment != 'Paid' 
+        ORDER BY o.id DESC
     ''')
     rows = cursor.fetchall()
     conn.close()
@@ -244,6 +247,36 @@ def get_admin_orders():
             'payment': r[8], 'created_at': r[9], 'phone': r[10] or ''
         })
     return jsonify(orders)
+
+@app.route('/api/admin/order/pay/<int:order_id>', methods=['POST'])
+def pay_order(order_id):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("UPDATE orders SET payment = 'Paid', status = 'Completed' WHERE id = ?", (order_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({'status': 'success'})
+
+@app.route('/api/admin/client_history/<client_id>', methods=['GET'])
+def get_client_history(client_id):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT order_code, total_amount, payment, created_at, order_json FROM orders WHERE client_id = ? ORDER BY id DESC", (client_id,))
+    rows = cursor.fetchall()
+    conn.close()
+    
+    history = []
+    for r in rows:
+        try: items_parsed = json.loads(r[4])
+        except: items_parsed = []
+        history.append({
+            'order_code': r[0], 
+            'total': r[1], 
+            'payment_status': r[2],
+            'created_at': r[3], 
+            'items': items_parsed
+        })
+    return jsonify(history)
 
 @app.route('/api/admin/order/update', methods=['POST'])
 def update_order_status():
@@ -302,10 +335,21 @@ def client_pay():
     
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute("UPDATE clients SET total_paid = total_paid + ?, pending_balance = pending_balance - ? WHERE id = ?", (amount, amount, client_id))
+    cursor.execute("SELECT id, total_amount FROM orders WHERE client_id = ? AND payment != 'Paid' ORDER BY id ASC", (client_id,))
+    unpaid_orders = cursor.fetchall()
+    
+    rem = amount
+    for oid, tot in unpaid_orders:
+        if rem >= tot:
+            cursor.execute("UPDATE orders SET payment = 'Paid', status = 'Completed' WHERE id = ?", (oid,))
+            rem -= tot
+        else:
+            break
+            
     conn.commit()
     conn.close()
     return jsonify({'status': 'success', 'amount': amount})
+
 if __name__ == '__main__':
     init_db()
     print("🚀 Praeparo Server Active on http://127.0.0.1:5000")

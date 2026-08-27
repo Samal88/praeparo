@@ -129,6 +129,7 @@
     </main>
 
     <!-- MODAL CONTAINERS -->
+    <!-- QR CODE MODAL -->
     <div id="qr-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
         <div class="bg-slate-900 border border-slate-700 p-6 rounded-2xl w-full max-w-sm space-y-4 text-center shadow-2xl">
             <div class="flex justify-between items-center border-b border-slate-800 pb-3">
@@ -147,6 +148,7 @@
         </div>
     </div>
 
+    <!-- CLIENT CREATION MODAL -->
     <div id="client-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
         <div class="bg-slate-900 border border-slate-700 p-6 rounded-2xl w-full max-w-md space-y-4 shadow-2xl">
             <div class="flex justify-between items-center border-b border-slate-800 pb-3">
@@ -166,6 +168,7 @@
         </div>
     </div>
 
+    <!-- PRODUCT CREATION MODAL -->
     <div id="add-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
         <div class="bg-slate-900 border border-slate-700 p-6 rounded-2xl w-full max-w-lg space-y-4 shadow-2xl">
             <div class="flex justify-between items-center border-b border-slate-800 pb-3">
@@ -190,6 +193,22 @@
                     <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 rounded-lg font-bold">Save Product</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- CLIENT TRANSACTION HISTORY MODAL (NEW) -->
+    <div id="history-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full max-h-[80vh] flex flex-col shadow-2xl">
+            <div class="p-4 border-b border-slate-800 flex justify-between items-center">
+                <div>
+                    <h3 class="font-black text-emerald-400 text-base" id="hist-client-title">Client Order History</h3>
+                    <p class="text-[10px] text-slate-400">Past Orders & Transaction Statement</p>
+                </div>
+                <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-white font-bold text-lg">✕</button>
+            </div>
+            <div class="p-4 overflow-y-auto space-y-3 text-xs" id="hist-modal-content">
+                <p class="text-slate-500 text-center">Loading history...</p>
+            </div>
         </div>
     </div>
 
@@ -231,7 +250,8 @@
             tbody.innerHTML = '';
 
             if (rawOrders.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-500 italic">No orders received yet.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-emerald-400 font-bold">✨ All kitchen orders are clear & paid!</td></tr>`;
+                return;
             }
 
             rawOrders.forEach(ord => {
@@ -250,7 +270,7 @@
                             🖨️ KOT (A5)
                         </button>
                         <button onclick="sendWhatsAppBill('${ord.code}')" class="bg-green-700 hover:bg-green-600 text-white px-2 py-1 rounded text-[11px] font-bold">📲 WA</button>
-                        ${ord.payment !== 'Paid' ? `<button onclick="markOrderPaid(${ord.id})" class="bg-slate-700 hover:bg-slate-600 text-white px-2 py-1 rounded text-[11px] font-bold">💵 Paid</button>` : '<span class="text-xs text-emerald-500 font-bold">✓ Settled</span>'}
+                        ${ord.payment !== 'Paid' ? `<button onclick="markOrderPaid(${ord.id})" class="bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 rounded text-[11px] font-bold shadow">✓ Paid & Archive</button>` : '<span class="text-xs text-emerald-500 font-bold">✓ Settled</span>'}
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -274,7 +294,7 @@
 
             kotArea.innerHTML = `
                 <div style="border: 2px solid #000; padding: 15px; border-radius: 8px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #000; padding-bottom: 10px; margin-bottom: 10px;">
+                    <div style="display: flex; justify-between; align-items: center; border-bottom: 3px solid #000; padding-bottom: 10px; margin-bottom: 10px;">
                         <div>
                             <h1 style="margin: 0; font-size: 20px; font-weight: 900;">PRAEPARO KITCHEN TICKET (KOT)</h1>
                             <p style="margin: 2px 0; font-size: 12px; font-weight: bold; color: #555;">Fresh Cut Processing Orders</p>
@@ -285,7 +305,7 @@
                         </div>
                     </div>
 
-                    <div style="display: flex; justify-content: space-between; background: #f3f4f6; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 12px;">
+                    <div style="display: flex; justify-between; background: #f3f4f6; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 12px;">
                         <div><b>CUSTOMER:</b> <span style="font-size: 14px; font-weight: bold;">${ord.client_name}</span></div>
                         <div><b>ROUTE:</b> <span style="font-size: 14px; font-weight: bold;">${ord.route}</span></div>
                     </div>
@@ -301,7 +321,7 @@
                         <tbody>${itemRows}</tbody>
                     </table>
 
-                    <div style="display: flex; justify-content: space-between; align-items: center; border-top: 2px solid #000; padding-top: 10px;">
+                    <div style="display: flex; justify-between; align-items: center; border-top: 2px solid #000; padding-top: 10px;">
                         <div style="font-size: 10px;">
                             <b>PREPARED BY:</b> _______________ &nbsp;&nbsp;&nbsp; <b>CHECKED BY:</b> _______________
                         </div>
@@ -329,6 +349,7 @@
                     <td class="p-3.5 font-bold text-slate-300">Rs. ${c.total_billed.toFixed(2)}</td>
                     <td class="p-3.5 font-black ${c.pending_balance > 0 ? 'text-amber-400' : 'text-emerald-400'}">Rs. ${c.pending_balance.toFixed(2)}</td>
                     <td class="p-3.5 text-center space-x-1">
+                        <button onclick="openHistoryModal('${c.id}', '${c.name}')" class="bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 px-2 py-1 rounded text-[11px] font-bold">📜 History</button>
                         <button onclick="sendWhatsAppStatement('${c.id}')" class="bg-green-700 hover:bg-green-600 text-white px-2 py-1 rounded text-[11px] font-bold">📲 Statement</button>
                         <button onclick="openQRModal('${c.id}', '${c.name}')" class="bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded text-[11px] font-bold">📱 QR</button>
                         <button onclick="updateClientProfile('${c.id}')" class="bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-1 rounded text-[11px] font-bold">💾 Save</button>
@@ -461,8 +482,53 @@
         }
 
         async function markOrderPaid(orderId) {
-            const res = await fetch('/api/admin/order/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order_id: orderId, payment: 'Paid', status: 'Completed' }) });
+            if (!confirm("Mark this order as Paid? It will be archived to Customer History.")) return;
+            const res = await fetch(`/api/admin/order/pay/${orderId}`, { method: 'POST' });
             if ((await res.json()).status === 'success') loadAdminData();
+        }
+
+        async function openHistoryModal(clientId, clientName) {
+            document.getElementById('hist-client-title').innerText = `${clientName} (${clientId})`;
+            const modal = document.getElementById('history-modal');
+            const container = document.getElementById('hist-modal-content');
+            modal.classList.remove('hidden');
+            container.innerHTML = `<p class="text-slate-500 text-center py-4">Loading transaction history...</p>`;
+
+            try {
+                const res = await fetch(`/api/admin/client_history/${clientId}`);
+                const history = await res.json();
+
+                if (history.length === 0) {
+                    container.innerHTML = `<p class="text-slate-500 text-center py-4">No order history found for this client.</p>`;
+                    return;
+                }
+
+                container.innerHTML = '';
+                history.forEach(h => {
+                    let itemsStr = h.items.map(i => `${i.vegName} (${i.cutName}) x ${i.qty}kg`).join(', ');
+                    let statusBadge = h.payment_status === 'Paid' 
+                        ? `<span class="bg-emerald-500/20 text-emerald-400 text-[10px] px-2 py-0.5 rounded font-bold">Paid</span>`
+                        : `<span class="bg-amber-500/20 text-amber-400 text-[10px] px-2 py-0.5 rounded font-bold">Unpaid</span>`;
+
+                    container.innerHTML += `
+                        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1">
+                            <div class="flex justify-between items-center">
+                                <span class="font-bold text-emerald-400">${h.order_code}</span>
+                                <span class="text-[10px] text-slate-500">${h.created_at}</span>
+                            </div>
+                            <div class="text-slate-300 text-[11px]">${itemsStr}</div>
+                            <div class="flex justify-between items-center pt-1 border-t border-slate-900 text-xs font-bold">
+                                <span>Rs. ${h.total.toFixed(2)}</span>
+                                ${statusBadge}
+                            </div>
+                        </div>
+                    `;
+                });
+            } catch(e) { container.innerHTML = `<p class="text-red-400 text-center">Failed to load history.</p>`; }
+        }
+
+        function closeHistoryModal() {
+            document.getElementById('history-modal').classList.add('hidden');
         }
 
         function toggleAddModal(show) { document.getElementById('add-modal').classList.toggle('hidden', !show); }
